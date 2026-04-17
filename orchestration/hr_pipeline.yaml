@@ -5,8 +5,9 @@ description: |
   Uploads raw CSV to GCS data lake, loads into BigQuery, runs dbt transformations.
 
 variables:
-  gcp_project_id: "hr-analytics-pipeline-490212"
-  gcp_bucket_name: "hr-analytics-pipeline"
+  # ⚠️  CHANGE THESE to match YOUR GCP project and bucket
+  gcp_project_id: "hr-analytics-pipeline-490212"   # <-- your GCP project ID
+  gcp_bucket_name: "hr-analytics-pipeline"          # <-- your GCS bucket name
   bq_dataset: "hr_analytics_dataset"
   credentials_path: "google_credentials.json"
 
