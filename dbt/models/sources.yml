@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: hr_raw
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: hr_analytics_dataset
+    tables:
+      - name: raw_hr_data
+        description: "Raw IBM HR Employee Attrition dataset loaded from GCS"

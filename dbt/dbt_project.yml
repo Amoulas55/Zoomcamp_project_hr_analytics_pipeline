@@ -1,0 +1,9 @@
+name: 'hr_analytics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'hr_analytics'
+
+models:
+  hr_analytics:
+    +materialized: table

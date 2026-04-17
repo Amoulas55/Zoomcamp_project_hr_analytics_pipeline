@@ -1,0 +1,75 @@
+id: hr_analytics_pipeline
+namespace: zoomcamp
+description: |
+  End-to-end HR Analytics batch pipeline.
+  Uploads raw CSV to GCS data lake, loads into BigQuery, runs dbt transformations.
+
+variables:
+  gcp_project_id: "hr-analytics-pipeline-490212"
+  gcp_bucket_name: "hr-analytics-pipeline"
+  bq_dataset: "hr_analytics_dataset"
+  credentials_path: "google_credentials.json"
+
+tasks:
+  # ---------------------------------------------------------------
+  # STEP 1: Upload raw CSV to GCS Data Lake
+  # ---------------------------------------------------------------
+  - id: upload_to_gcs
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      image: google/cloud-sdk:slim
+    inputFiles:
+      sa.json: "{{ read(vars.credentials_path) }}"
+      hr_dataset.csv: "{{ read('hr_dataset.csv') }}"
+    commands:
+      - gcloud auth activate-service-account --key-file=sa.json
+      - gsutil cp hr_dataset.csv gs://{{ vars.gcp_bucket_name }}/raw/hr_dataset.csv
+
+  # ---------------------------------------------------------------
+  # STEP 2: Load CSV from GCS into BigQuery raw table
+  # ---------------------------------------------------------------
+  - id: gcs_to_bigquery
+    type: io.kestra.plugin.gcp.bigquery.LoadFromGcs
+    serviceAccount: "{{ read(vars.credentials_path) }}"
+    projectId: "{{ vars.gcp_project_id }}"
+    destinationTable: "{{ vars.gcp_project_id }}.{{ vars.bq_dataset }}.raw_hr_data"
+    from:
+      - "gs://{{ vars.gcp_bucket_name }}/raw/hr_dataset.csv"
+    format: CSV
+    csvOptions:
+      skipLeadingRows: 1
+    autodetect: true
+    writeDisposition: WRITE_TRUNCATE
+    createDisposition: CREATE_IF_NEEDED
+
+  # ---------------------------------------------------------------
+  # STEP 3: Run dbt transformations inside BigQuery
+  # ---------------------------------------------------------------
+  - id: dbt_transform
+    type: io.kestra.plugin.scripts.shell.Commands
+    env:
+      GCP_PROJECT_ID: "{{ vars.gcp_project_id }}"
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      image: ghcr.io/dbt-labs/dbt-bigquery:1.7.2
+    namespaceFiles:
+      include:
+        - dbt/**
+    inputFiles:
+      sa.json: "{{ read(vars.credentials_path) }}"
+      profiles.yml: |
+        hr_analytics:
+          target: prod
+          outputs:
+            prod:
+              type: bigquery
+              method: service-account
+              project: "{{ vars.gcp_project_id }}"
+              dataset: "{{ vars.bq_dataset }}"
+              threads: 4
+              keyfile: sa.json
+    commands:
+      - cp -r dbt/* .
+      - dbt deps || true
+      - dbt build --profiles-dir .
