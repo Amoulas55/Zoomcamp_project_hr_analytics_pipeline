@@ -2,7 +2,7 @@
 
 **Data Engineering Zoomcamp — Final Project**
 
-![Dashboard Screenshot](zoomcamp_project_visualizations.png)
+
 
 ---
 
